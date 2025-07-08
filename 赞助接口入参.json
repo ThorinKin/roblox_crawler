@@ -1,9 +1,0 @@
-{
-	"pageType": "Home",
-	"sessionId": "b79a62ef-027e-4687-bfb6-d1401ffc49e2",
-	"supportedTreatmentTypes": [ "SortlessGrid" ],
-	"cpuCores": 12,
-	"maxResolution": "2560x1440",
-	"maxMemory": 8192,
-	"networkType": "4g"
-}

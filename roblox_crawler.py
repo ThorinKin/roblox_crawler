@@ -375,6 +375,8 @@ def append_data_to_excel_with_images(data_list, excel_path=EXCEL_PATH):
 def workflow(cycles: int = 288, space_time: int = 300):
     """
     主工作流函数，获取热门趋势内容并查询游戏信息。
+
+    入参默认间隔5分钟，持续24小时（288次）。
     """
     # 初始化日志功能
     logging_init()
