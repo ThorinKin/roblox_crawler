@@ -27,7 +27,7 @@ def upsert_records(records: List[Dict[str, Any]]) -> None:
             rec.get("活跃玩家数") or 0,
             rec.get("总访问")     or 0,
             rec.get("总喜欢数")   or 0,
-            rec.get("好评率")     or "N/A",
+            rec.get("好评率")     or "",
             rec.get("iconUrl")    or "",
             now
         ))

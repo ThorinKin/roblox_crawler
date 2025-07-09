@@ -109,7 +109,7 @@ def fetch_omni_recommendation(
     timeout: int = 10,
 ) -> list:
     """
-    调用 /omni-recommendation，非官方api。
+    调用 /omni-recommendation，非官方api。更新于20250709 10:25
 
     参数
     ----
@@ -126,16 +126,16 @@ def fetch_omni_recommendation(
     前20个赞助游戏id列表。
     """
     # 暂时不带token
-    csrf_saved = sess.headers.pop("x-csrf-token", None)
+    # csrf_saved = sess.headers.pop("x-csrf-token", None)
 
     payload = {
         "pageType": page_type,
         "sessionId": str(uuid.uuid4()),
-        # "supportedTreatmentTypes": supported_treatments,
-        # "cpuCores": cpu_cores,
-        # "maxResolution": max_resolution,
-        # "maxMemory": max_memory,
-        # "networkType": network_type,
+        "supportedTreatmentTypes": supported_treatments,
+        "cpuCores": cpu_cores,
+        "maxResolution": max_resolution,
+        "maxMemory": max_memory,
+        "networkType": network_type,
     }
 
     logging.info("请求 discovery-api/omni-recommendation 入参: %s",
@@ -158,9 +158,10 @@ def fetch_omni_recommendation(
     )
     r.raise_for_status()           # 4xx / 5xx → 抛异常
     data = r.json().get("sorts", [])
+    # print(f"（测试）接口返回：{data}")
     result = []
     for sort in data:
-        if sort["topic"].lower() in {"赞助", "sponsored", "sponsoredgame"}:
+        if (sort.get("topic") or "").lower() in {"赞助", "sponsored", "sponsoredgame"}:
             for item in sort.get("recommendationList", []):
                 for key in ("contentId","placeId","universeId"):
                     if key in item: result.append(item[key]); break
@@ -454,4 +455,17 @@ def workflow(cycles: int = 288, space_time: int = 300):
             time.sleep(space_time)  # 默认5分钟间隔
 
 if __name__ == "__main__":
-    workflow()
+    # workflow()
+    # 测试：
+    logging_init()
+
+    print(f"\n（调试）开始拉取数据...\n")
+    logging.info(f"开始拉取数据...")
+
+    # 初始化登录会话
+    sess = session.ensure_session()
+    time.sleep(random.uniform(1, 3))
+
+    # 赞助 API 查询，返回前 20 个赞助游戏商的 universeId 列表
+    top_ids = fetch_omni_recommendation(sess)
+    time.sleep(random.uniform(1, 3))
