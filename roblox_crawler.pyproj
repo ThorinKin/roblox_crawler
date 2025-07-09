@@ -28,11 +28,9 @@
     <Compile Include="db_helper.py" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="temp.json" />
     <Content Include="准备保存的结果.json" />
     <Content Include="前20名详情.json" />
     <Content Include="前20的id和图标.json" />
-    <Content Include="赞助接口入参.json" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
   <!-- Uncomment the CoreCompile target to enable the Build command in
