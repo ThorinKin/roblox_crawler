@@ -1,3 +1,4 @@
+# roblox_crawler.py
 import requests
 from typing import List, Dict, Union, Iterable, Optional
 import uuid
@@ -10,10 +11,10 @@ import json
 # 自定义模块
 import session 
 import db_helper
+from app_paths import app_dir
 
 EXCEL_PATH = r'D:\热门数据.xlsx'
 OMNI_RECO_URL = "https://apis.roblox.com/discovery-api/omni-recommendation"
-
 
 def logging_init():
     """
@@ -26,7 +27,8 @@ def logging_init():
         logging.critical("严重错误")
     """
     # 找到脚本所在目录
-    script_dir = os.path.dirname(os.path.abspath(__file__))
+    # script_dir = os.path.dirname(os.path.abspath(__file__))
+    script_dir = app_dir()
 
     # 定义日志文件路径
     log_path = os.path.join(script_dir, 'debug.log')
@@ -39,63 +41,6 @@ def logging_init():
         filename=log_path,                 # 日志文件
         filemode='a',                      # 追加模式
     )
-
-
-""" # 弃用的函数：get_trending_content_ids
-def get_trending_content_ids(
-    session_id: str,
-    sort_id: str = "top-trending",
-    start: int = 0,
-    limit: int = 20
-):
-    # 获取指定排序下的热门体验列表，并返回排名前 `limit` 的 universeId 列表和 好评率 列表。
-  
-    # - session_id: 可以使用 uuid.uuid4() 生成的任意字符串
-    # - sort_id: 排序类型，默认为 "top-trending"
-    # - start: 列表起始索引
-    # - limit: 最多返回多少个 universeId
-
-    url = "https://apis.roblox.com/explore-api/v1/get-sort-content"
-    params = {
-        "sessionId":      session_id,
-        "sortId":         sort_id,
-        "age":            "all",
-        "country":        "all",
-        "device":         "high_end_tablet",
-        "discoverPageSessionInfo": session_id,
-        "gameSetTargetId":        238,
-        "gameSetTypeId":          23,
-        "page":                   "gamesPage",
-        "position":               1,
-        "treatmentType":          "Carousel",
-        "cpuCores":               28,
-        "maxResolution":          "1920x1080",
-        "maxMemory":              8192,
-        "networkType":            "4g",
-        "startIndex":             start,
-        "limit":                  limit,
-    }
-    headers = {
-        "User-Agent": "Mozilla/5.0 (compatible; DataBot/1.0)",
-        "Accept":     "application/json",
-    }
-
-    resp = requests.get(url, params=params, headers=headers, timeout=5)
-    resp.raise_for_status()
-    data = resp.json().get("games", [])
-    # print(f"\n（测试）接口返回：{data}\n")
-    # 提取 universeId（或回退取 id 字段），并只取前 limit 个
-    result_ids = []
-    praise_ids = []
-    for item in data:
-        if "universeId" in item:
-            result_ids.append(item["universeId"])
-            praise_ids.append(item["totalUpVotes"]/(item["totalUpVotes"] + item["totalDownVotes"]))
-        if len(result_ids) >= limit:
-            break
-
-    return result_ids, praise_ids
-"""
 
 def fetch_omni_recommendation(
     sess: requests.Session,
@@ -125,8 +70,7 @@ def fetch_omni_recommendation(
     ----
     前20个赞助游戏id列表。
     """
-    # 暂时不带token
-    # csrf_saved = sess.headers.pop("x-csrf-token", None)
+    # 已弃用token
 
     payload = {
         "pageType": page_type,
@@ -190,7 +134,6 @@ def get_game_icons(
     返回字典格式为 { universeId: imageUrl }
     
     """
-    # Roblox Thumbnails Batch API（POST）
     url = "https://thumbnails.roblox.com/v1/batch"
     
     # 构造请求体：每个元素都是一个 dict
@@ -317,62 +260,6 @@ def get_vote_stats(
     logging.info(f"获取好评率列表：{ratios}")
     return ratios
 
-""" # 弃用的函数：append_data_to_excel_with_images
-def append_data_to_excel_with_images(data_list, excel_path=EXCEL_PATH):
-    # 将 data_list（列表 of dicts）写入或追加到 Excel 文件，并在 iconUrl 列插入对应图片。
-    # - 自动在所有 record 中补入 saved_at 字段。
-
-    # 先给每条记录加上保存时间
-    now = datetime.now()
-    for rec in data_list:
-        rec['saved_at'] = now
-
-    created_new = not os.path.exists(excel_path)
-    if created_new:
-        # ---------- 首次：Pandas 写整表（包含 saved_at） ----------
-        df = pd.DataFrame(data_list)
-        df.to_excel(excel_path, index=False, engine='openpyxl')
-
-    # ---------- 不管首次还是追加，都用 openpyxl 处理后续逻辑 ----------
-    wb = load_workbook(excel_path)
-    ws = wb.active
-
-    # 1. 读取表头，定位 iconUrl 列
-    headers = [cell.value for cell in ws[1]]
-    icon_col_idx = headers.index('iconUrl') + 1
-
-    # 2. 确定写入起始行
-    start_row = 2 if created_new else ws.max_row + 1
-
-    # 3. 遍历 data_list，把字段写入对应列，并插图
-    for i, record in enumerate(data_list):
-        row_idx = start_row + i
-
-        # 如果是追加模式，需要写除了 iconUrl 以外的所有字段
-        if not created_new:
-            for col_idx, header in enumerate(headers, start=1):
-                if header != 'iconUrl' and header in record:
-                    ws.cell(row=row_idx, column=col_idx, value=record[header])
-
-        # 插入图片
-        url = record.get('iconUrl')
-        if url and url.startswith('http'):
-            try:
-                resp = requests.get(url, timeout=5)
-                resp.raise_for_status()
-                img = OpenpyxlImage(BytesIO(resp.content))
-                img.width = img.height = 100
-                coord = f"{get_column_letter(icon_col_idx)}{row_idx}"
-                ws.add_image(img, coord)
-            except Exception as e:
-                print(f"行 {row_idx} 插入图片失败: {e}")
-
-    wb.save(excel_path)
-    action = "创建并插入" if created_new else "追加并插入"
-    print(f"{action}{len(data_list)} 条记录并插入图片到 {excel_path}")
-    logging.info(f"{action}{len(data_list)} 条记录并插入图片到 {excel_path}")
-    """
-
 def workflow(cycles: int = 288, space_time: int = 300):
     """
     主工作流函数，获取热门趋势内容并查询游戏信息。
@@ -432,8 +319,8 @@ def workflow(cycles: int = 288, space_time: int = 300):
 
             # 现在 data_to_save 就是一个长度为 limit（默认 20）的列表，
             # 每个元素都是一个包含上述字段的 dict，可直接写入数据库或导出 CSV/JSON
-            print(f"\n（调试）组装完的数据：{data_to_save}\n")
-            logging.info(f"组装完的数据：{data_to_save}")
+            print(f"\n（调试）数据组装完成，准备存库....\n")
+            logging.info("数据组装完成，准备存库....")
             
             # 存库
             db_helper.upsert_records(data_to_save)
@@ -452,20 +339,9 @@ def workflow(cycles: int = 288, space_time: int = 300):
         finally:
             print(f"\n（调试）第 {i+1} 次拉取数据结束...\n")
             logging.info(f"第 {i+1} 次拉取数据结束...")
-            time.sleep(space_time)  # 默认5分钟间隔
+            if i < cycles - 1:
+                time.sleep(space_time)
 
 if __name__ == "__main__":
-    # workflow()
+    workflow()
     # 测试：
-    logging_init()
-
-    print(f"\n（调试）开始拉取数据...\n")
-    logging.info(f"开始拉取数据...")
-
-    # 初始化登录会话
-    sess = session.ensure_session()
-    time.sleep(random.uniform(1, 3))
-
-    # 赞助 API 查询，返回前 20 个赞助游戏商的 universeId 列表
-    top_ids = fetch_omni_recommendation(sess)
-    time.sleep(random.uniform(1, 3))

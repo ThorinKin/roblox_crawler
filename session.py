@@ -1,14 +1,18 @@
+# session.py
 import os
 import json
 import requests
 import logging
 
+# 自定义模块
+from app_paths import app_dir
+
 # 全局配置
-SESSION_FILE = os.path.join(os.path.dirname(__file__), 'session.json')
-# CSRF_URL = "https://auth.roblox.com/v2/logout"
+SESSION_FILE = app_dir() / 'session.json' # pathlib.Path 类型重载运算符，用来拼接路径。
 CSRF_URL = "https://auth.roblox.com/v2/login"
-# CHECK_COOKIE_URL = "https://apis.roblox.com/discovery-api/omni-recommendation"
 AUTH_USER_URL = "https://users.roblox.com/v1/users/authenticated"
+# 全局保存回调
+_cookie_prompt_cb = None          
 
 def logging_init():
     """
@@ -48,55 +52,25 @@ def save_session(data):
         json.dump(data, f, indent=2)
         logging.info("成功保存登录会话数据到文件")
 
-def refresh_cookie():
-    # 提示用户输入新的 .ROBLOSECURITY 值
-    new_cookie = input("请输入新的 .ROBLOSECURITY 值: ").strip()
-    return new_cookie
+def register_cookie_prompt(func):
+    """GUI 程序在主线程里调用，把弹窗函数塞进来"""
+    global _cookie_prompt_cb
+    _cookie_prompt_cb = func
 
-def get_csrf_token(cookie: str, cached_token: str | None = None) -> str:
+def refresh_cookie() -> str:
     """
-    先验证本地缓存的 x-csrf-token 是否可用，若失效则自动刷新。
-
-    返回可用的 x-csrf-token
+    返回新的 .ROBLOSECURITY
+    - 如果 GUI 回调已注册：调用之
+    - 否则：退回 console input
     """
-    common_headers = {
-        "Cookie": f".ROBLOSECURITY={cookie}",
-        "User-Agent": "SessionManager/1.0",
-        "Accept": "application/json",
-        "Content-Type": "application/json",
-    }
-
-    def probe(token: str | None) -> tuple[int, str | None]:
-        """带（或不带）token 发一次 probe，返回 (status_code, new_token_header)"""
-        headers = common_headers.copy()
-        if token:
-            headers["x-csrf-token"] = token
+    if callable(_cookie_prompt_cb):
         try:
-            logging.info("接口调用，尝试获取/验证 x-csrf-token...")
-            r = requests.post(CSRF_URL, headers=headers, timeout=10, json={})
-            return r.status_code, r.headers.get("x-csrf-token")
-        except requests.RequestException as e:
-            logging.error("获取/验证 x-csrf-token 失败: %s", e)
-            raise RuntimeError("网络错误，无法验证 x-csrf-token") from e
+            return _cookie_prompt_cb().strip()
+        except Exception as e:
+            logging.warning("GUI 输入 Cookie 失败，将回退到 console：%s", e)
 
-    # 有缓存情况下：验证缓存的 token 是否有效
-    if cached_token:
-        status, maybe_new = probe(cached_token)
-        if status != 403:
-            logging.info("沿用缓存的 x-csrf-token")
-            return cached_token
-        if maybe_new:
-            logging.info("检测到缓存 token 失效，已获取服务器下发新 token")
-            return maybe_new
-
-    # 无缓存情况下，或 header 为空：不带 token 请求token
-    status, maybe_new = probe(None)
-    if maybe_new:
-        logging.info("无缓存，成功刷新到新的 x-csrf-token")
-        return maybe_new
-
-    logging.error("未能获得新的 x-csrf-token，Cookie 可能无效")
-    raise RuntimeError("无法获取 x-csrf-token；请检查 .ROBLOSECURITY")
+    # ---- console fallback ----
+    return input("请输入新的 .ROBLOSECURITY 值: ").strip()
 
 def check_cookie_valid(cookie: str) -> bool:
     """使用官方替换端点验证 .ROBLOSECURITY 是否仍有效"""
@@ -121,10 +95,9 @@ def ensure_session():
 
     检测并确保会话有效，返回一个带有会话的 requests.Session 对象。
     """
-    # 读取会话数据
+    # 读取会话数据，已弃用token
     sess_data = load_session()
     cookie = sess_data.get('cookie')
-    # csrf = sess_data.get('csrf_token')
 
     # 使 cookie 生效或刷新
     if not cookie or not check_cookie_valid(cookie):
@@ -133,22 +106,6 @@ def ensure_session():
         # 触发重新输入 .ROBLOSECURITY
         cookie = refresh_cookie()
         sess_data['cookie'] = cookie
-
-    # 使 CSRF token 生效或刷新
-    """  
-    try:
-        csrf = get_csrf_token(cookie, cached_token=csrf)
-        sess_data["csrf_token"] = csrf
-    except RuntimeError as e:    
-        print("（错误）刷新 x-csrf-token 失败：", e)
-        logging.error(f"刷新 x-csrf-token 失败:{e}")
-        print("需要二次确认 .ROBLOSECURITY 是否正确，再试一次....")
-        logging.info("需要二次确认 .ROBLOSECURITY 是否正确，再试一次....")
-        cookie = refresh_cookie()
-        sess_data['cookie'] = cookie
-        csrf = get_csrf_token(cookie)
-        sess_data['csrf_token'] = csrf
-    """
 
     save_session(sess_data)
 
@@ -161,5 +118,3 @@ def ensure_session():
 
 if __name__ == "__main__":
     session = ensure_session()
-    # data = fetch_omni_recommendation(session)
-    # print(json.dumps(data, indent=2))

@@ -4,7 +4,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>3ba19226-c2b5-4458-94bf-90533db091e3</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>test_gui.pyw</StartupFile>
+    <StartupFile>gui_app.pyw</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -22,13 +22,11 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="app_paths.py" />
     <Compile Include="roblox_crawler.py" />
     <Compile Include="session.py" />
-    <Compile Include="test_gui.pyw" />
+    <Compile Include="gui_app.pyw" />
     <Compile Include="db_helper.py" />
-  </ItemGroup>
-  <ItemGroup>
-    <Content Include="推荐接口返回.json" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
   <!-- Uncomment the CoreCompile target to enable the Build command in
