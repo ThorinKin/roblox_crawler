@@ -262,7 +262,7 @@ def get_vote_stats(
 
 def workflow(cycles: int = 288, space_time: int = 300):
     """
-    主工作流函数，获取热门趋势内容并查询游戏信息。
+    主工作流函数，网页api获取热门趋势内容并查询游戏信息。
 
     入参默认间隔5分钟，持续24小时（288次）。
     """
@@ -270,8 +270,8 @@ def workflow(cycles: int = 288, space_time: int = 300):
     logging_init()
 
     for i in range(cycles):
-        print(f"\n（调试）开始第 {i+1} 次拉取数据...\n")
-        logging.info(f"开始第 {i+1} 次拉取数据...")
+        print(f"\n（调试）开始第 {i+1} 次网页数据提取...\n")
+        logging.info(f"开始第 {i+1} 次网页数据提取...")
 
         # 真正的主流程：
         try:
@@ -292,7 +292,9 @@ def workflow(cycles: int = 288, space_time: int = 300):
             time.sleep(random.uniform(1, 3))
 
             # 获取每个 universe 的好评率，返回一个列表
-            praise_rates = get_vote_stats(top_ids)
+            # praise_rates = get_vote_stats(top_ids)
+            # 20250710新需求为避免限流不再爬取好评率
+            praise_rates = []
 
             # —— 组装存档的数据 ——
             # 1. 把 multiple 列表变成以 int(universeId) 为 key 的映射
@@ -304,6 +306,84 @@ def workflow(cycles: int = 288, space_time: int = 300):
             # 2. 遍历前 20 个 id，按索引取 praise_rates，再从 icon_map、game_info_map 拿对应字段
             data_to_save = []
             for idx, uid in enumerate(top_ids):
+                info = game_info_map.get(uid, {})
+                data_to_save.append({
+                    "宇宙ID":           uid,
+                    "游戏名":           info.get("name"),
+                    "创建时间":         info.get("created"),
+                    "游戏类型":         info.get("genre_l1"),
+                    "活跃玩家数":       info.get("playing"),
+                    "总访问":           info.get("visits"),
+                    "总喜欢数":         info.get("favoritedCount"),
+                    "好评率":           "", # praise_rates[idx],
+                    "iconUrl":          top_id_and_icon.get(str(uid)),
+                })
+
+            # 现在 data_to_save 就是一个长度为 limit（默认 20）的列表，
+            # 每个元素都是一个包含上述字段的 dict，可直接写入数据库或导出 CSV/JSON
+            print(f"\n（调试）数据组装完成，准备存库....\n")
+            logging.info("数据组装完成，准备存库....")
+            
+            # 存库
+            db_helper.upsert_records(data_to_save)
+            print(f"\n（调试）已将 {len(data_to_save)} 条记录存入数据库。\n")
+            logging.info(f"已将 {len(data_to_save)} 条记录存入数据库。")
+
+        except requests.RequestException as e:
+            print(f"\n（错误）网络请求错误：{e}\n")
+            logging.error(f"网络请求错误：{e}")
+        except ValueError as e:
+            print(f"\n（错误）值错误：{e}\n")
+            logging.error(f"值错误：{e}")
+        except Exception as e:
+            print (f"\n（错误）其他错误：{e}\n")
+            logging.error(f"其他错误：{e}")
+        finally:
+            print(f"\n（调试）第 {i+1} 次网页数据提取结束...\n")
+            logging.info(f"第 {i+1} 次网页数据提取结束...")
+            if i < cycles - 1:
+                time.sleep(space_time)
+
+def workflow_2(ids: list, cycles: int = 288, space_time: int = 300):
+    """
+    第二主功能，自定义游戏ID列表（最大20个），数据爬取。
+
+    入参默认间隔5分钟，持续24小时（288次）。
+    """
+    # 初始化日志功能
+    logging_init()
+
+    for i in range(cycles):
+        print(f"\n（调试）开始第 {i+1} 次自定义数据提取...\n")
+        logging.info(f"开始第 {i+1} 次自定义数据提取...")
+
+        # 真正的主流程：
+        try:
+            # 初始化登录会话
+            sess = session.ensure_session()
+            time.sleep(random.uniform(1, 3))
+
+            # 获取每个 universe 对应的图标 URL，返回 { str(id): url }
+            top_id_and_icon = get_game_icons(ids)
+            time.sleep(random.uniform(1, 3))
+
+            # 获取每个 universe 的详细信息，返回一个字典列表
+            multiple = get_game_info(ids)
+            time.sleep(random.uniform(1, 3))
+
+            # 获取每个 universe 的好评率，返回一个列表
+            praise_rates = get_vote_stats(ids)
+
+            # —— 组装存档的数据 ——
+            # 1. 把 multiple 列表变成以 int(universeId) 为 key 的映射
+            game_info_map = {
+                int(g.get("universeId") or g.get("id")): g
+                for g in multiple
+            }
+
+            # 2. 遍历前 20 个 id，按索引取 praise_rates，再从 icon_map、game_info_map 拿对应字段
+            data_to_save = []
+            for idx, uid in enumerate(ids):
                 info = game_info_map.get(uid, {})
                 data_to_save.append({
                     "宇宙ID":           uid,
@@ -337,10 +417,11 @@ def workflow(cycles: int = 288, space_time: int = 300):
             print (f"\n（错误）其他错误：{e}\n")
             logging.error(f"其他错误：{e}")
         finally:
-            print(f"\n（调试）第 {i+1} 次拉取数据结束...\n")
-            logging.info(f"第 {i+1} 次拉取数据结束...")
+            print(f"\n（调试）第 {i+1} 次自定义数据提取结束...\n")
+            logging.info(f"第 {i+1} 次自定义数据提取结束...")
             if i < cycles - 1:
                 time.sleep(space_time)
+
 
 if __name__ == "__main__":
     workflow()
