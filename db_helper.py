@@ -1,7 +1,7 @@
 # db_helper.py
 import sqlite3
 from datetime import datetime
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import requests
 # 自定义模块
 from app_paths import app_dir
@@ -93,38 +93,67 @@ def delete_by_universe_id(uid: int):
         conn.commit()
 
 def query_records(
-    name_like: str | None = None,
-    date_from: str | None = None,   # 'YYYY-MM-DD' 或更精细到秒
-    date_to:   str | None = None,
-    limit: int = 200,
-) -> list[dict]:
+    name_like: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to:   Optional[str] = None,
+    limit:     Optional[int] = None,
+    universe_id: Optional[int] = None,
+    distinct:  bool = False
+) -> List[Dict[str, Any]]:
     """
-    根据 name、saved_at 模糊查询记录。
-    参数均可留空
+    根据条件查询记录。
+    - name_like, date_from, date_to, universe_id 均可选
+    - limit 为 None 时不限制条数
+    - distinct=True 时按 universe_id 去重，只保留最新一条
     """
-    sql = ["SELECT * FROM sponsored_games"]
-    params: list[Any] = []
+    # 构造基础 SQL 和参数（不含 LIMIT）
+    sql_parts: List[str] = ["SELECT * FROM sponsored_games"]
+    params: List[Any] = []
+    where_clauses: List[str] = []
 
-    # 动态拼 where
-    where: list[str] = []
     if name_like:
-        where.append("name LIKE ?")
+        where_clauses.append("name LIKE ?")
         params.append(f"%{name_like}%")
-
     if date_from:
-        where.append("saved_at >= ?")
+        where_clauses.append("saved_at >= ?")
         params.append(date_from)
     if date_to:
-        where.append("saved_at <= ?")
+        where_clauses.append("saved_at <= ?")
         params.append(date_to)
+    if universe_id is not None:
+        where_clauses.append("universe_id = ?")
+        params.append(universe_id)
 
-    if where:
-        sql.append("WHERE " + " AND ".join(where))
+    if where_clauses:
+        sql_parts.append("WHERE " + " AND ".join(where_clauses))
 
-    sql.append("ORDER BY saved_at DESC LIMIT ?")
-    params.append(limit)
+    # 最新优先
+    sql_parts.append("ORDER BY saved_at DESC")
+
+    # 如果不去重，直接加 LIMIT
+    if not distinct and limit is not None:
+        sql_parts.append("LIMIT ?")
+        params.append(limit)
+
+    sql_query = " ".join(sql_parts)
 
     with sqlite3.connect(_db_path()) as conn:
         conn.row_factory = sqlite3.Row
-        cur = conn.execute(" ".join(sql), params)
-        return [dict(r) for r in cur.fetchall()]
+        all_rows = [dict(r) for r in conn.execute(sql_query, params).fetchall()]
+
+    # 如果不去重，直接返回
+    if not distinct:
+        return all_rows
+
+    # 去重逻辑：按 universe_id 保留第一条（即最新的一条），再应用 limit
+    seen = set()
+    distinct_rows: List[Dict[str, Any]] = []
+    for row in all_rows:
+        uid = row.get("universe_id")
+        if uid not in seen:
+            seen.add(uid)
+            distinct_rows.append(row)
+            if limit is not None and len(distinct_rows) >= limit:
+                break
+
+    return distinct_rows
