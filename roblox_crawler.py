@@ -360,8 +360,8 @@ def workflow_2(ids: list, cycles: int = 288, space_time: int = 300):
         # 真正的主流程：
         try:
             # 初始化登录会话
-            sess = session.ensure_session()
-            time.sleep(random.uniform(1, 3))
+            # sess = session.ensure_session()
+            # time.sleep(random.uniform(1, 3))
 
             # 获取每个 universe 对应的图标 URL，返回 { str(id): url }
             top_id_and_icon = get_game_icons(ids)

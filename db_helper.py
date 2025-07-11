@@ -157,3 +157,94 @@ def query_records(
                 break
 
     return distinct_rows
+
+def analyze_playing_growth(
+    percent_threshold: float,
+    name_like: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    universe_id: Optional[int] = None,
+    distinct: bool = False,
+    limit: Optional[int] = None
+) -> List[Dict[str, Any]]:
+    """
+    分析在指定时间范围内游戏的在线人数增长超过给定百分比的记录。
+
+    参数:
+        percent_threshold: 增长百分比阈值（如 10 表示 10%）
+        name_like: 名称匹配关键词，None 表示不限制
+        date_from: 开始时间（包含），格式与 saved_at 字段一致，None 表示不限制
+        date_to: 结束时间（包含），None 表示不限制
+        universe_id: 宇宙ID 精准匹配，None 表示不限制
+        distinct: 是否去重，True 则每个游戏只保留最新的一条满足条件的记录
+        limit: 返回记录条数上限，如果 None 则不限制
+    返回:
+        包含原表字段及新增字段 'growth_percent' 的记录列表
+    """    # 构造 SQL
+    sql_parts = ["SELECT * FROM sponsored_games"]
+    params: List[Any] = []
+    where_clauses: List[str] = []
+
+    if name_like:
+        where_clauses.append("name LIKE ?")
+        params.append(f"%{name_like}%")
+    if universe_id is not None:
+        where_clauses.append("universe_id = ?")
+        params.append(universe_id)
+    if date_from:
+        where_clauses.append("saved_at >= ?")
+        params.append(date_from)
+    if date_to:
+        where_clauses.append("saved_at <= ?")
+        params.append(date_to)
+    if where_clauses:
+        sql_parts.append("WHERE " + " AND ".join(where_clauses))
+
+    sql_parts.append("ORDER BY universe_id, saved_at")
+    sql_query = " ".join(sql_parts)
+
+    # 查询所有记录
+    with sqlite3.connect(_db_path()) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = [dict(r) for r in conn.execute(sql_query, params).fetchall()]
+
+    # 计算增量事件
+    prev_playing: Dict[Any, int] = {}
+    growth_events: List[Dict[str, Any]] = []
+    for row in rows:
+        uid = row.get("universe_id")
+        playing = row.get("playing", 0)
+        prev = prev_playing.get(uid)
+        if prev is not None and prev > 0:
+            growth = (playing - prev) / prev * 100
+            if growth >= percent_threshold:
+                event = row.copy()
+                event['growth_percent'] = growth
+                growth_events.append(event)
+        prev_playing[uid] = playing
+
+    # 根据 distinct 和 limit 处理返回结果
+    # distinct: 每个游戏只保留最新一条
+    if distinct:
+        seen = set()
+        result: List[Dict[str, Any]] = []
+        for ev in sorted(growth_events, key=lambda r: r['saved_at'], reverse=True):
+            uid = ev.get('universe_id')
+            if uid not in seen:
+                seen.add(uid)
+                result.append(ev)
+                if limit is not None and len(result) >= limit:
+                    break
+        return result
+
+    # 不去重：按 saved_at 倒序，截取 limit
+    result = sorted(growth_events, key=lambda r: r['saved_at'], reverse=True)
+    if limit is not None:
+        result = result[:limit]
+    return result
+
+if __name__ == "__main__": 
+    pass
+    # 测试：
+    test = analyze_playing_growth(1, "Build An Island!", distinct = True)
+    print(f"测试：{test}")

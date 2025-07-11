@@ -19,7 +19,7 @@ from datetime import datetime
 # 自定义模块
 import roblox_crawler
 from session import register_cookie_prompt
-from db_helper import query_records
+from db_helper import query_records, analyze_playing_growth
 
 # 可选的间隔（分钟）和运行时长（小时）
 INTERVAL_OPTIONS = [5, 10, 30, 60]
@@ -65,7 +65,7 @@ def main():
             try:
                 for _ in range(cycles):
                     if stop_event.is_set(): break
-                    roblox_crawler.workflow(1, space_time)
+                    roblox_crawler.workflow(cycles, space_time)
             finally:
                 root.after(0, lambda: (start_btn.config(state=tk.NORMAL), custom_btn.config(state=tk.NORMAL), stop_btn.config(state=tk.DISABLED)))
         threading.Thread(target=run_loop, daemon=True).start()
@@ -104,7 +104,7 @@ def main():
             try:
                 for _ in range(cycles):
                     if stop_event.is_set(): break
-                    roblox_crawler.workflow_2(ids,1,space_time)
+                    roblox_crawler.workflow_2(ids, cycles,space_time)
             finally:
                 root.after(0, lambda: (start_btn.config(state=tk.NORMAL), custom_btn.config(state=tk.NORMAL), stop_btn.config(state=tk.DISABLED)))
         threading.Thread(target=run_loop,daemon=True).start()
@@ -149,12 +149,19 @@ def main():
     distinct_cb = tk.Checkbutton(cond_frame, text="去重", variable=distinct_var)
     distinct_cb.grid(row=0, column=8, padx=5)
 
-    # 查询 / 清空按钮
+    # 新增：增量查询 百分比 输入
+    tk.Label(cond_frame, text="在线涨幅(%)").grid(row=0, column=9, padx=5, sticky="e")
+    percent_var = tk.StringVar(value="10")
+    percent_entry = tk.Entry(cond_frame, textvariable=percent_var, width=6)
+    percent_entry.grid(row=0, column=10, padx=(0,10))
+
+    # 查询 / 清空 / 增量查询 按钮
     def on_query():
         try:
-            limit = int(limit_var.get())
+            limit = int(limit_var.get());
+            if limit <= 0: raise ValueError
         except ValueError:
-            messagebox.showerror("参数错误", "显示数量必须是整数")
+            messagebox.showerror("参数错误", "显示数量必须是大于0的整数")
             return
         tv.delete(*tv.get_children())
         rows = query_records(
@@ -173,10 +180,37 @@ def main():
             if icon:
                 tv.item(item_id, image=icon)
 
-    tk.Button(cond_frame, text="查询", width=8, command=on_query).grid(row=0, column=9, padx=(12, 4))
+    def on_growth_query():
+        try:
+            limit = int(limit_var.get());
+            if limit <= 0: raise ValueError
+            percent = float(percent_var.get())
+        except ValueError:
+            messagebox.showerror("参数错误", "显示数量必须为大于0的整数，增幅百分比为数字")
+            return
+        tv.delete(*tv.get_children())
+        rows = analyze_playing_growth(
+            percent_threshold=percent,
+            name_like=name_var.get().strip() or None,
+            date_from=from_var.get().strip() or None,
+            date_to=to_var.get().strip() or None,
+            distinct=distinct_var.get(),
+            limit=limit
+        )
+        for r in rows:
+            key = str(r.get("universe_id"))
+            blob = r.get("icon_blob")
+            icon = fetch_blob_photo(blob, key)
+            vals = tuple(r.get(c, "") for c in cols)
+            item_id = tv.insert("", "end", values=vals)
+            if icon:
+                tv.item(item_id, image=icon)
+
+    tk.Button(cond_frame, text="普通查询", width=8, command=on_query).grid(row=0, column=11, padx=(12,4))
     tk.Button(cond_frame, text="清空", width=8, command=lambda: (
-        name_var.set(""), from_var.set(""), to_var.set(""), limit_var.set("20"), distinct_var.set(False), on_query()
-    )).grid(row=0, column=10)
+        name_var.set(""), from_var.set(""), to_var.set(""), limit_var.set("20"), distinct_var.set(False), percent_var.set("10"), on_query()
+    )).grid(row=0, column=12)
+    tk.Button(cond_frame, text="增量查询", width=8, command=on_growth_query).grid(row=0, column=13, padx=(8,0))
 
     # ---------- 缓存图片 ----------
     _icon_cache: dict[str, ImageTk.PhotoImage] = {}
@@ -281,7 +315,7 @@ def main():
     tv.bind("<Button-3>", on_right_click)
 
     # 绑定回车查询
-    for widget in (entry_name, entry_from, entry_to, limit_entry):
+    for widget in (entry_name, entry_from, entry_to, limit_entry, percent_entry):
         widget.bind("<Return>", lambda e: on_query())
 
     # 初次显示
