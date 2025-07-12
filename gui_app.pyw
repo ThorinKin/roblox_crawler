@@ -44,14 +44,15 @@ def main():
     tk.Label(ctrl_frame, text="抓取间隔(分钟)").grid(row=0, column=0, padx=6)
     interval_var = tk.StringVar(value=str(INTERVAL_OPTIONS[0]))
     ttk.Combobox(ctrl_frame, textvariable=interval_var,
-                 values=[str(i) for i in INTERVAL_OPTIONS], state="readonly", width=6).grid(row=0, column=1, padx=(0,15))
+                 values=[str(i) for i in INTERVAL_OPTIONS], state="readonly", width=6)\
+        .grid(row=0, column=1, padx=(0,15))
 
     tk.Label(ctrl_frame, text="运行时长(小时)").grid(row=0, column=2, padx=6)
     duration_var = tk.StringVar(value=str(DURATION_OPTIONS[0]))
     ttk.Combobox(ctrl_frame, textvariable=duration_var,
-                 values=[str(h) for h in DURATION_OPTIONS], state="readonly", width=6).grid(row=0, column=3, padx=(0,15))
+                 values=[str(h) for h in DURATION_OPTIONS], state="readonly", width=6)\
+        .grid(row=0, column=3, padx=(0,15))
 
-    # 网页提取
     def on_start():
         try:
             interval = int(interval_var.get()); duration = int(duration_var.get())
@@ -67,36 +68,36 @@ def main():
                     if stop_event.is_set(): break
                     roblox_crawler.workflow(cycles, space_time)
             finally:
-                root.after(0, lambda: (start_btn.config(state=tk.NORMAL), custom_btn.config(state=tk.NORMAL), stop_btn.config(state=tk.DISABLED)))
+                root.after(0, lambda: (
+                    start_btn.config(state=tk.NORMAL),
+                    custom_btn.config(state=tk.NORMAL),
+                    stop_btn.config(state=tk.DISABLED)
+                ))
         threading.Thread(target=run_loop, daemon=True).start()
 
     start_btn = tk.Button(ctrl_frame, text="网页提取", width=10, command=on_start)
     start_btn.grid(row=0, column=4, padx=10)
 
-    # 自定义提取
-    tk.Label(ctrl_frame,text="自定义ID列表(≤20，逗号分隔)").grid(row=0,column=5,padx=6)
+    tk.Label(ctrl_frame, text="自定义ID列表(≤20，逗号分隔)").grid(row=0, column=5, padx=6)
     ids_var = tk.StringVar()
-    ids_entry = tk.Entry(ctrl_frame,textvariable=ids_var,width=28)
-    ids_entry.grid(row=0,column=6,padx=(0,10))
+    ids_entry = tk.Entry(ctrl_frame, textvariable=ids_var, width=28)
+    ids_entry.grid(row=0, column=6, padx=(0,10))
+
     def on_custom():
-        raw=ids_var.get().strip()
+        raw = ids_var.get().strip()
         if not raw:
-            messagebox.showerror("参数错误","请输入至少一个 Universe ID")
-            return
+            messagebox.showerror("参数错误","请输入至少一个 Universe ID"); return
         try:
-            ids=[int(s) for s in raw.replace("；",",").split(",") if s.strip()]
+            ids = [int(s) for s in raw.replace("；",",").split(",") if s.strip()]
         except:
-            messagebox.showerror("参数错误","ID 列表中只能包含整数和逗号")
-            return
-        if len(ids)>20:
-            messagebox.showerror("参数错误","ID 数量不能超过 20 个")
-            return
+            messagebox.showerror("参数错误","ID 列表中只能包含整数和逗号"); return
+        if len(ids) > 20:
+            messagebox.showerror("参数错误","ID 数量不能超过 20 个"); return
         try:
-            interval=int(interval_var.get()); duration=int(duration_var.get())
+            interval = int(interval_var.get()); duration = int(duration_var.get())
         except:
-            messagebox.showerror("参数错误","请选择有效数字")
-            return
-        space_time=interval*60; cycles=duration*60//interval
+            messagebox.showerror("参数错误","请选择有效数字"); return
+        space_time = interval*60; cycles = duration*60//interval
         start_btn.config(state=tk.DISABLED); custom_btn.config(state=tk.DISABLED); stop_btn.config(state=tk.NORMAL)
         stop_event.clear()
         messagebox.showinfo("已启动",f"自定义提取已启动：{len(ids)} 个 ID\n运行 {duration} 小时，间隔 {interval} 分钟。")
@@ -104,19 +105,23 @@ def main():
             try:
                 for _ in range(cycles):
                     if stop_event.is_set(): break
-                    roblox_crawler.workflow_2(ids, cycles,space_time)
+                    roblox_crawler.workflow_2(ids, cycles, space_time)
             finally:
-                root.after(0, lambda: (start_btn.config(state=tk.NORMAL), custom_btn.config(state=tk.NORMAL), stop_btn.config(state=tk.DISABLED)))
-        threading.Thread(target=run_loop,daemon=True).start()
-    custom_btn = tk.Button(ctrl_frame,text="自定义提取",width=10,command=on_custom)
-    custom_btn.grid(row=0,column=7)
+                root.after(0, lambda: (
+                    start_btn.config(state=tk.NORMAL),
+                    custom_btn.config(state=tk.NORMAL),
+                    stop_btn.config(state=tk.DISABLED)
+                ))
+        threading.Thread(target=run_loop, daemon=True).start()
 
-    # 停止按钮
+    custom_btn = tk.Button(ctrl_frame, text="自定义提取", width=10, command=on_custom)
+    custom_btn.grid(row=0, column=7)
+
     def on_stop():
         stop_event.set()
         messagebox.showinfo("已停止","当前周期结束后停止。")
-    stop_btn = tk.Button(ctrl_frame,text="停止脚本",width=10,command=on_stop,state=tk.DISABLED)
-    stop_btn.grid(row=0,column=8,padx=10)
+    stop_btn = tk.Button(ctrl_frame, text="停止脚本", width=10, command=on_stop, state=tk.DISABLED)
+    stop_btn.grid(row=0, column=8, padx=10)
 
     # ---------- 分隔线 ----------
     ttk.Separator(root, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=6)
@@ -125,49 +130,74 @@ def main():
     cond_frame = tk.Frame(root)
     cond_frame.pack(fill=tk.X, padx=8, pady=4)
 
+    # --- 第一行：名称 & 时间范围 ---
     tk.Label(cond_frame, text="游戏名包含").grid(row=0, column=0, padx=5, sticky="e")
     name_var = tk.StringVar()
     entry_name = tk.Entry(cond_frame, textvariable=name_var, width=18)
     entry_name.grid(row=0, column=1)
 
-    tk.Label(cond_frame, text="保存时间 从").grid(row=0, column=2, padx=5, sticky="e")
+    tk.Label(cond_frame, text="创建时间 从").grid(row=0, column=2, padx=5, sticky="e")
+    created_from_var = tk.StringVar()
+    entry_created_from = tk.Entry(cond_frame, textvariable=created_from_var, width=20)
+    entry_created_from.grid(row=0, column=3)
+    tk.Label(cond_frame, text="到").grid(row=0, column=4, padx=5, sticky="e")
+    created_to_var = tk.StringVar()
+    entry_created_to = tk.Entry(cond_frame, textvariable=created_to_var, width=14)
+    entry_created_to.grid(row=0, column=5)
+
+    tk.Label(cond_frame, text="保存时间 从").grid(row=0, column=6, padx=5, sticky="e")
     from_var = tk.StringVar()
     entry_from = tk.Entry(cond_frame, textvariable=from_var, width=14)
-    entry_from.grid(row=0, column=3)
-
-    tk.Label(cond_frame, text="到").grid(row=0, column=4, padx=5, sticky="e")
+    entry_from.grid(row=0, column=7)
+    tk.Label(cond_frame, text="到").grid(row=0, column=8, padx=5, sticky="e")
     to_var = tk.StringVar()
     entry_to = tk.Entry(cond_frame, textvariable=to_var, width=14)
-    entry_to.grid(row=0, column=5)
+    entry_to.grid(row=0, column=9)
 
-    tk.Label(cond_frame, text="显示数量").grid(row=0, column=6, padx=5, sticky="e")
+    # --- 第二行：数值筛选 & 操作按钮 ---
+    tk.Label(cond_frame, text="活跃玩家 ≥").grid(row=1, column=0, padx=5, sticky="e")
+    playing_min_var = tk.StringVar(value="0")
+    entry_playing_min = tk.Entry(cond_frame, textvariable=playing_min_var, width=12)
+    entry_playing_min.grid(row=1, column=1)
+
+    tk.Label(cond_frame, text="访问量 ≥").grid(row=1, column=2, padx=5, sticky="e")
+    visits_min_var = tk.StringVar(value="0")
+    entry_visits_min = tk.Entry(cond_frame, textvariable=visits_min_var, width=12)
+    entry_visits_min.grid(row=1, column=3)
+
+    tk.Label(cond_frame, text="显示数量").grid(row=1, column=4, padx=5, sticky="e")
     limit_var = tk.StringVar(value="20")
     limit_entry = tk.Entry(cond_frame, textvariable=limit_var, width=6)
-    limit_entry.grid(row=0, column=7)
+    limit_entry.grid(row=1, column=5)
 
     distinct_var = tk.BooleanVar(value=True)
     distinct_cb = tk.Checkbutton(cond_frame, text="去重", variable=distinct_var)
-    distinct_cb.grid(row=0, column=8, padx=5)
+    distinct_cb.grid(row=1, column=6, padx=5)
 
-    # 新增：增量查询 百分比 输入
-    tk.Label(cond_frame, text="在线涨幅(%)").grid(row=0, column=9, padx=5, sticky="e")
+    tk.Label(cond_frame, text="在线涨幅(%)").grid(row=1, column=7, padx=5, sticky="e")
     percent_var = tk.StringVar(value="10")
     percent_entry = tk.Entry(cond_frame, textvariable=percent_var, width=6)
-    percent_entry.grid(row=0, column=10, padx=(0,10))
+    percent_entry.grid(row=1, column=8, padx=(0,10))
 
-    # 查询 / 清空 / 增量查询 按钮
     def on_query():
         try:
-            limit = int(limit_var.get());
-            if limit <= 0: raise ValueError
+            limit = int(limit_var.get()); 
+            playing_min = int(playing_min_var.get())
+            visits_min = int(visits_min_var.get())
+            if limit <= 0 or playing_min < 0 or visits_min < 0:
+                raise ValueError
         except ValueError:
-            messagebox.showerror("参数错误", "显示数量必须是大于0的整数")
+            messagebox.showerror("参数错误", "显示数量、活跃玩家、访问量必须为非负整数")
             return
         tv.delete(*tv.get_children())
         rows = query_records(
             name_like=name_var.get().strip() or None,
+            created_from=created_from_var.get().strip() or None,
+            created_to=created_to_var.get().strip() or None,
             date_from=from_var.get().strip() or None,
             date_to=to_var.get().strip() or None,
+            playing_min=playing_min,
+            visits_min=visits_min,
             limit=limit,
             distinct=distinct_var.get()
         )
@@ -182,18 +212,25 @@ def main():
 
     def on_growth_query():
         try:
-            limit = int(limit_var.get());
-            if limit <= 0: raise ValueError
+            limit = int(limit_var.get())
+            playing_min = int(playing_min_var.get())
+            visits_min = int(visits_min_var.get())
             percent = float(percent_var.get())
+            if limit <= 0 or playing_min < 0 or visits_min < 0:
+                raise ValueError
         except ValueError:
-            messagebox.showerror("参数错误", "显示数量必须为大于0的整数，增幅百分比为数字")
+            messagebox.showerror("参数错误", "请输入正确的筛选值（非负整数和数字）")
             return
         tv.delete(*tv.get_children())
         rows = analyze_playing_growth(
             percent_threshold=percent,
             name_like=name_var.get().strip() or None,
+            created_from=created_from_var.get().strip() or None,
+            created_to=created_to_var.get().strip() or None,
             date_from=from_var.get().strip() or None,
             date_to=to_var.get().strip() or None,
+            playing_min=playing_min,
+            visits_min=visits_min,
             distinct=distinct_var.get(),
             limit=limit
         )
@@ -206,11 +243,23 @@ def main():
             if icon:
                 tv.item(item_id, image=icon)
 
-    tk.Button(cond_frame, text="普通查询", width=8, command=on_query).grid(row=0, column=11, padx=(12,4))
+    tk.Button(cond_frame, text="普通查询", width=8, command=on_query)\
+        .grid(row=1, column=9, padx=(12,4))
+    tk.Button(cond_frame, text="增量查询", width=8, command=on_growth_query)\
+        .grid(row=1, column=10, padx=(0,4))
     tk.Button(cond_frame, text="清空", width=8, command=lambda: (
-        name_var.set(""), from_var.set(""), to_var.set(""), limit_var.set("20"), distinct_var.set(False), percent_var.set("10"), on_query()
-    )).grid(row=0, column=12)
-    tk.Button(cond_frame, text="增量查询", width=8, command=on_growth_query).grid(row=0, column=13, padx=(8,0))
+        name_var.set(""),
+        created_from_var.set(""),
+        created_to_var.set(""),
+        from_var.set(""),
+        to_var.set(""),
+        playing_min_var.set("0"),
+        visits_min_var.set("0"),
+        limit_var.set("20"),
+        distinct_var.set(False),
+        percent_var.set("10"),
+        on_query()
+    )).grid(row=1, column=11)
 
     # ---------- 缓存图片 ----------
     _icon_cache: dict[str, ImageTk.PhotoImage] = {}
@@ -315,7 +364,9 @@ def main():
     tv.bind("<Button-3>", on_right_click)
 
     # 绑定回车查询
-    for widget in (entry_name, entry_from, entry_to, limit_entry, percent_entry):
+    for widget in (entry_name, entry_created_from, entry_created_to,
+                   entry_from, entry_to, entry_playing_min,
+                   entry_visits_min, limit_entry, percent_entry):
         widget.bind("<Return>", lambda e: on_query())
 
     # 初次显示
