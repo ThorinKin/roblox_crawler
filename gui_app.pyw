@@ -123,8 +123,6 @@ def main():
     stop_btn = tk.Button(ctrl_frame, text="停止脚本", width=10, command=on_stop, state=tk.DISABLED)
     stop_btn.grid(row=0, column=8, padx=10)
 
-    # ---------- 分隔线 ----------
-    ttk.Separator(root, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=6)
 
     # ---------- 查询条件区 ----------
     cond_frame = tk.Frame(root)
@@ -155,39 +153,54 @@ def main():
     entry_to.grid(row=0, column=9)
 
     # --- 第二行：数值筛选 & 操作按钮 ---
-    tk.Label(cond_frame, text="活跃玩家 ≥").grid(row=1, column=0, padx=5, sticky="e")
+    tk.Label(cond_frame, text="活跃玩家 ≥").grid(row=1, column=0, padx=(0,1), sticky="e")
     playing_min_var = tk.StringVar(value="0")
-    entry_playing_min = tk.Entry(cond_frame, textvariable=playing_min_var, width=12)
-    entry_playing_min.grid(row=1, column=1)
+    entry_playing_min = tk.Entry(cond_frame, textvariable=playing_min_var, width=15)
+    entry_playing_min.grid(row=1, column=1, padx=(0,2))
+    tk.Label(cond_frame, text="≤").grid(row=1, column=2, padx=(0,2))
+    playing_max_var = tk.StringVar(value="")
+    entry_playing_max = tk.Entry(cond_frame, textvariable=playing_max_var, width=15)
+    entry_playing_max.grid(row=1, column=3, padx=(0,2))
 
-    tk.Label(cond_frame, text="访问量 ≥").grid(row=1, column=2, padx=5, sticky="e")
+    tk.Label(cond_frame, text="访问量 ≥").grid(row=1, column=4, padx=(0,1), sticky="e")
     visits_min_var = tk.StringVar(value="0")
-    entry_visits_min = tk.Entry(cond_frame, textvariable=visits_min_var, width=12)
-    entry_visits_min.grid(row=1, column=3)
+    entry_visits_min = tk.Entry(cond_frame, textvariable=visits_min_var, width=15)
+    entry_visits_min.grid(row=1, column=5, padx=(0,2))
+    tk.Label(cond_frame, text="≤").grid(row=1, column=6, padx=(0,2))
+    visits_max_var = tk.StringVar(value="")
+    entry_visits_max = tk.Entry(cond_frame, textvariable=visits_max_var, width=15)
+    entry_visits_max.grid(row=1, column=7, padx=(0,2))
 
-    tk.Label(cond_frame, text="显示数量").grid(row=1, column=4, padx=5, sticky="e")
+    tk.Label(cond_frame, text="显示数量").grid(row=1, column=8, padx=(5,2), sticky="e")
     limit_var = tk.StringVar(value="20")
     limit_entry = tk.Entry(cond_frame, textvariable=limit_var, width=6)
-    limit_entry.grid(row=1, column=5)
+    limit_entry.grid(row=1, column=9, padx=1)
 
     distinct_var = tk.BooleanVar(value=True)
     distinct_cb = tk.Checkbutton(cond_frame, text="去重", variable=distinct_var)
-    distinct_cb.grid(row=1, column=6, padx=5)
+    distinct_cb.grid(row=1, column=10, padx=1)
 
-    tk.Label(cond_frame, text="在线涨幅(%)").grid(row=1, column=7, padx=5, sticky="e")
+    tk.Label(cond_frame, text="在线涨幅(%)").grid(row=1, column=11, padx=(1,2), sticky="e")
     percent_var = tk.StringVar(value="10")
     percent_entry = tk.Entry(cond_frame, textvariable=percent_var, width=6)
-    percent_entry.grid(row=1, column=8, padx=(0,10))
+    percent_entry.grid(row=1, column=12, padx=1)
 
     def on_query():
         try:
-            limit = int(limit_var.get()); 
+            limit = int(limit_var.get())
             playing_min = int(playing_min_var.get())
             visits_min = int(visits_min_var.get())
             if limit <= 0 or playing_min < 0 or visits_min < 0:
                 raise ValueError
+            # 最大值可选
+            pmax = playing_max_var.get().strip()
+            vmax = visits_max_var.get().strip()
+            playing_max = int(pmax) if pmax else None
+            visits_max = int(vmax) if vmax else None
+            if (playing_max is not None and playing_max < playing_min) or (visits_max is not None and visits_max < visits_min):
+                raise ValueError
         except ValueError:
-            messagebox.showerror("参数错误", "显示数量、活跃玩家、访问量必须为非负整数")
+            messagebox.showerror("参数错误", "显示数量、活跃玩家/访问量必须为非负整数，且最大值不小于最小值")
             return
         tv.delete(*tv.get_children())
         rows = query_records(
@@ -197,7 +210,9 @@ def main():
             date_from=from_var.get().strip() or None,
             date_to=to_var.get().strip() or None,
             playing_min=playing_min,
+            playing_max=playing_max,
             visits_min=visits_min,
+            visits_max=visits_max,
             limit=limit,
             distinct=distinct_var.get()
         )
@@ -218,8 +233,14 @@ def main():
             percent = float(percent_var.get())
             if limit <= 0 or playing_min < 0 or visits_min < 0:
                 raise ValueError
+            pmax = playing_max_var.get().strip()
+            vmax = visits_max_var.get().strip()
+            playing_max = int(pmax) if pmax else None
+            visits_max = int(vmax) if vmax else None
+            if (playing_max is not None and playing_max < playing_min) or (visits_max is not None and visits_max < visits_min):
+                raise ValueError
         except ValueError:
-            messagebox.showerror("参数错误", "请输入正确的筛选值（非负整数和数字）")
+            messagebox.showerror("参数错误", "请输入正确的筛选值（非负整数、数字，且最大值不小于最小值）")
             return
         tv.delete(*tv.get_children())
         rows = analyze_playing_growth(
@@ -230,7 +251,9 @@ def main():
             date_from=from_var.get().strip() or None,
             date_to=to_var.get().strip() or None,
             playing_min=playing_min,
+            playing_max=playing_max,
             visits_min=visits_min,
+            visits_max=visits_max,
             distinct=distinct_var.get(),
             limit=limit
         )
@@ -244,9 +267,9 @@ def main():
                 tv.item(item_id, image=icon)
 
     tk.Button(cond_frame, text="普通查询", width=8, command=on_query)\
-        .grid(row=1, column=9, padx=(12,4))
+        .grid(row=1, column=13, padx=(12,4))
     tk.Button(cond_frame, text="增量查询", width=8, command=on_growth_query)\
-        .grid(row=1, column=10, padx=(0,4))
+        .grid(row=1, column=14, padx=(0,4))
     tk.Button(cond_frame, text="清空", width=8, command=lambda: (
         name_var.set(""),
         created_from_var.set(""),
@@ -254,12 +277,14 @@ def main():
         from_var.set(""),
         to_var.set(""),
         playing_min_var.set("0"),
+        playing_max_var.set(""),
         visits_min_var.set("0"),
+        visits_max_var.set(""),
         limit_var.set("20"),
         distinct_var.set(False),
         percent_var.set("10"),
         on_query()
-    )).grid(row=1, column=11)
+    )).grid(row=1, column=15)
 
     # ---------- 缓存图片 ----------
     _icon_cache: dict[str, ImageTk.PhotoImage] = {}
@@ -366,7 +391,8 @@ def main():
     # 绑定回车查询
     for widget in (entry_name, entry_created_from, entry_created_to,
                    entry_from, entry_to, entry_playing_min,
-                   entry_visits_min, limit_entry, percent_entry):
+                   entry_visits_min, limit_entry, percent_entry,
+                   entry_playing_max, entry_visits_max):
         widget.bind("<Return>", lambda e: on_query())
 
     # 初次显示

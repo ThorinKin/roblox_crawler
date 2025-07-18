@@ -100,7 +100,9 @@ def query_records(
     created_from: Optional[str] = None,
     created_to: Optional[str] = None,
     playing_min: Optional[int] = None,
+    playing_max: Optional[int] = None,
     visits_min: Optional[int] = None,
+    visits_max: Optional[int] = None,
     limit:     Optional[int] = None,
     universe_id: Optional[int] = None,
     distinct:  bool = False
@@ -108,7 +110,7 @@ def query_records(
     """
     根据条件查询记录。
     - 支持 name_like, date_from/ date_to(saved_at), created_from/created_to(created_at),
-      playing_min, visits_min, universe_id
+      playing_min/playing_max, visits_min/visits_max, universe_id
     - limit=None 不限制条数
     - distinct=True 时按 universe_id 去重，只保留最新一条
     """
@@ -139,9 +141,15 @@ def query_records(
     if playing_min is not None:
         where_clauses.append("playing >= ?")
         params.append(playing_min)
+    if playing_max is not None:
+        where_clauses.append("playing <= ?")
+        params.append(playing_max)
     if visits_min is not None:
         where_clauses.append("visits >= ?")
         params.append(visits_min)
+    if visits_max is not None:
+        where_clauses.append("visits <= ?")
+        params.append(visits_max)
 
     if where_clauses:
         sql_parts.append("WHERE " + " AND ".join(where_clauses))
@@ -181,7 +189,9 @@ def analyze_playing_growth(
     created_from: Optional[str] = None,
     created_to: Optional[str] = None,
     playing_min: Optional[int] = None,
+    playing_max: Optional[int] = None,
     visits_min: Optional[int] = None,
+    visits_max: Optional[int] = None,
     universe_id: Optional[int] = None,
     distinct: bool = False,
     limit: Optional[int] = None
@@ -191,8 +201,8 @@ def analyze_playing_growth(
     参数:
       percent_threshold: 增长百分比阈值，如10表示10%
       name_like, date_from/date_to(saved_at),
-      created_from/created_to(created_at), playing_min, visits_min, universe_id,
-      distinct, limit
+      created_from/created_to(created_at), playing_min/playing_max, visits_min/visits_max,
+      universe_id, distinct, limit
     返回: 包含原表字段及growth_percent字段的记录列表
     """
     sql_parts = ["SELECT * FROM sponsored_games"]
@@ -220,9 +230,15 @@ def analyze_playing_growth(
     if playing_min is not None:
         where_clauses.append("playing >= ?")
         params.append(playing_min)
+    if playing_max is not None:
+        where_clauses.append("playing <= ?")
+        params.append(playing_max)
     if visits_min is not None:
         where_clauses.append("visits >= ?")
         params.append(visits_min)
+    if visits_max is not None:
+        where_clauses.append("visits <= ?")
+        params.append(visits_max)
 
     if where_clauses:
         sql_parts.append("WHERE " + " AND ".join(where_clauses))
